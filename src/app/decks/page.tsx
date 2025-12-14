@@ -8,6 +8,7 @@ import { parseFile } from '@/lib/parser';
 
 const SAMPLE_DECKS = [
   { name: '1주차 - 소인수분해와 정수 덧뺄셈', file: '/decks/week01-prime-factorization.md' },
+  { name: '1주차 - Gemini 튜터링 버전', file: '/decks/week01-gemini.md' },
   { name: '2주차 - 정수 곱셈나눗셈과 혼합계산', file: '/decks/week02-integer-multiplication.md' },
   { name: '3주차 - 유리수 계산과 총정리', file: '/decks/week03-rational-numbers.md' },
   { name: '4주차 - 문자의 사용법과 식의 값', file: '/decks/week04-algebraic-expressions.md' },
