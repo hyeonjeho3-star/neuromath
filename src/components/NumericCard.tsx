@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import type { Card } from '@/lib/db';
 import { Check, X } from 'lucide-react';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 interface NumericCardProps {
   card: Card;
@@ -169,9 +170,9 @@ export function NumericCard({ card, onAnswer, disabled = false }: NumericCardPro
                 <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Explanation
                 </span>
-                <p className="mt-2 text-gray-700 dark:text-gray-300">
-                  {card.back}
-                </p>
+                <div className="mt-2">
+                  <MarkdownRenderer content={card.back} />
+                </div>
               </div>
             )}
           </>

@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { Card } from '@/lib/db';
 import { ClozeRenderer } from './ClozeRenderer';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 interface FlashCardProps {
   card: Card;
@@ -56,9 +56,9 @@ export function FlashCard({ card, isFlipped, onFlip }: FlashCardProps) {
                 <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Explanation
                 </span>
-                <p className="mt-2 text-gray-700 dark:text-gray-300">
-                  {card.back}
-                </p>
+                <div className="mt-2">
+                  <MarkdownRenderer content={card.back} />
+                </div>
               </div>
             )}
           </div>

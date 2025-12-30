@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import type { Card, Choice } from '@/lib/db';
 import { Check, X, Tag, ArrowRight } from 'lucide-react';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 interface MCQCardProps {
   card: Card;
@@ -158,9 +159,9 @@ export function MCQCard({ card, onAnswer, onRequestErrorTag, disabled = false }:
           <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
             Explanation
           </span>
-          <p className="mt-2 text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-            {card.back}
-          </p>
+          <div className="mt-2">
+            <MarkdownRenderer content={card.back} />
+          </div>
         </div>
       )}
 
