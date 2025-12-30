@@ -158,43 +158,18 @@ function parseCards(body: string, errors: ParseError[]): ParsedCard[] {
     return cards;
   }
 
-  // Split by empty lines or --- separators for card boundaries
-  const blocks = body.split(/\n\s*\n/).filter(b => b.trim() && b.trim() !== '---');
+  // Split by --- separators for card boundaries
+  // Each section between --- is treated as one card block
+  const sections = body.split(/\n---\n|\n---$|^---\n/).filter(s => s.trim() && s.trim() !== '---');
 
-  for (const block of blocks) {
-    const trimmedBlock = block.trim();
+  for (const section of sections) {
+    const trimmedBlock = section.trim();
 
     // Skip separators
     if (trimmedBlock === '---') continue;
 
-    // Check for Q&A format
-    if (trimmedBlock.startsWith('Q:') || trimmedBlock.startsWith('q:')) {
-      const lines = trimmedBlock.split('\n');
-      let question = '';
-      let answer = '';
-
-      for (const line of lines) {
-        const trimmedLine = line.trim();
-        if (trimmedLine.toLowerCase().startsWith('q:')) {
-          question = trimmedLine.slice(2).trim();
-        } else if (trimmedLine.toLowerCase().startsWith('a:')) {
-          answer = trimmedLine.slice(2).trim();
-        }
-      }
-
-      if (question && answer) {
-        cards.push({
-          front: question,
-          back: answer,
-          clozes: [],
-          trapOptions: [],
-          tags: [],
-        });
-      }
-      continue;
-    }
-
-    // Check for structured format (## front / ## back)
+    // Check for structured format first (## front / ## back / ## choices / ## steps)
+    // These need to be kept as a single block even with empty lines
     if (trimmedBlock.includes('## front') || trimmedBlock.includes('## Front')) {
       const card = parseStructuredCard(trimmedBlock, errors);
       if (card) {
@@ -203,50 +178,85 @@ function parseCards(body: string, errors: ParseError[]): ParsedCard[] {
       continue;
     }
 
-    // Cloze format: sentence with {{c1::answer::hint}} and optional |trap:
-    if (trimmedBlock.includes('{{c')) {
-      const lines = trimmedBlock.split('\n');
-      let front = '';
-      let trapOptions: string[] = [];
+    // For non-structured cards, split by empty lines
+    const subBlocks = trimmedBlock.split(/\n\s*\n/).filter(b => b.trim());
 
-      for (const line of lines) {
-        const trimmedLine = line.trim();
-        if (trimmedLine.startsWith('|trap:') || trimmedLine.startsWith('| trap:')) {
-          const trapValue = trimmedLine.replace(/^\|?\s*trap:\s*/i, '');
-          trapOptions = trapValue.split(',').map(t => t.trim()).filter(Boolean);
-        } else if (trimmedLine) {
-          front = trimmedLine;
+    for (const block of subBlocks) {
+      const trimmedSubBlock = block.trim();
+      if (!trimmedSubBlock || trimmedSubBlock === '---') continue;
+
+      // Check for Q&A format
+      if (trimmedSubBlock.startsWith('Q:') || trimmedSubBlock.startsWith('q:')) {
+        const lines = trimmedSubBlock.split('\n');
+        let question = '';
+        let answer = '';
+
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (trimmedLine.toLowerCase().startsWith('q:')) {
+            question = trimmedLine.slice(2).trim();
+          } else if (trimmedLine.toLowerCase().startsWith('a:')) {
+            answer = trimmedLine.slice(2).trim();
+          }
         }
+
+        if (question && answer) {
+          cards.push({
+            front: question,
+            back: answer,
+            clozes: [],
+            trapOptions: [],
+            tags: [],
+          });
+        }
+        continue;
       }
 
-      if (front) {
-        const clozes = extractClozes(front);
-        cards.push({
-          front,
-          back: clozes.map(c => c.answer).join(', '),
-          clozes,
-          trapOptions,
-          tags: [],
-        });
-      }
-      continue;
-    }
+      // Cloze format: sentence with {{c1::answer::hint}} and optional |trap:
+      if (trimmedSubBlock.includes('{{c') || trimmedSubBlock.includes('{{')) {
+        const lines = trimmedSubBlock.split('\n');
+        let front = '';
+        let trapOptions: string[] = [];
 
-    // Simple pipe format: front | back (single block)
-    if (trimmedBlock.includes('|') && !trimmedBlock.startsWith('|')) {
-      const pipeIndex = trimmedBlock.indexOf('|');
-      const front = trimmedBlock.slice(0, pipeIndex).trim();
-      const back = trimmedBlock.slice(pipeIndex + 1).trim();
-      if (front && back) {
-        cards.push({
-          front,
-          back,
-          clozes: [],
-          trapOptions: [],
-          tags: [],
-        });
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (trimmedLine.startsWith('|trap:') || trimmedLine.startsWith('| trap:')) {
+            const trapValue = trimmedLine.replace(/^\|?\s*trap:\s*/i, '');
+            trapOptions = trapValue.split(',').map(t => t.trim()).filter(Boolean);
+          } else if (trimmedLine && !trimmedLine.startsWith('#')) {
+            front = trimmedLine;
+          }
+        }
+
+        if (front) {
+          const clozes = extractClozes(front);
+          cards.push({
+            front,
+            back: clozes.map(c => c.answer).join(', '),
+            clozes,
+            trapOptions,
+            tags: [],
+          });
+        }
+        continue;
       }
-      continue;
+
+      // Simple pipe format: front | back
+      if (trimmedSubBlock.includes('|') && !trimmedSubBlock.startsWith('|')) {
+        const pipeIndex = trimmedSubBlock.indexOf('|');
+        const front = trimmedSubBlock.slice(0, pipeIndex).trim();
+        const back = trimmedSubBlock.slice(pipeIndex + 1).trim();
+        if (front && back) {
+          cards.push({
+            front,
+            back,
+            clozes: [],
+            trapOptions: [],
+            tags: [],
+          });
+        }
+        continue;
+      }
     }
   }
 
@@ -255,6 +265,7 @@ function parseCards(body: string, errors: ParseError[]): ParsedCard[] {
 
 /**
  * Parse a structured card block with ## front / ## back sections
+ * Extended to support MCQ (## choices), numeric (## answer), and procedure (## steps)
  */
 function parseStructuredCard(block: string, errors: ParseError[]): ParsedCard | null {
   const card: Partial<ParsedCard> = {
@@ -267,6 +278,12 @@ function parseStructuredCard(block: string, errors: ParseError[]): ParsedCard | 
   const titleMatch = block.match(/^#\s+(.+)$/m);
   if (titleMatch) {
     card.title = titleMatch[1].trim();
+  }
+
+  // Check for card type directive
+  const typeMatch = block.match(/type:\s*(basic|cloze|mcq|numeric|procedure)/i);
+  if (typeMatch) {
+    card.cardType = typeMatch[1].toLowerCase() as ParsedCard['cardType'];
   }
 
   // Extract front section
@@ -290,7 +307,7 @@ function parseStructuredCard(block: string, errors: ParseError[]): ParsedCard | 
     card.back = '';
   }
 
-  // Extract trap options section
+  // Extract trap options section (legacy support)
   const trapMatch = block.match(/##\s*trap_options?\s*\n([\s\S]*?)(?=##|$)/i);
   if (trapMatch) {
     const trapContent = trapMatch[1].trim();
@@ -307,6 +324,99 @@ function parseStructuredCard(block: string, errors: ParseError[]): ParsedCard | 
     }
   }
 
+  // Extract choices section for MCQ cards
+  // Format: - [x] Correct answer OR - [ ] Wrong answer
+  const choicesMatch = block.match(/##\s*choices?\s*\n([\s\S]*?)(?=##|$)/i);
+  if (choicesMatch) {
+    const choicesContent = choicesMatch[1].trim();
+    const choiceLines = choicesContent.split('\n').filter(line => line.trim());
+    const choices: ParsedCard['choices'] = [];
+
+    for (const line of choiceLines) {
+      const trimmedLine = line.trim();
+      // Match - [x] text (correct) or - [ ] text (incorrect)
+      const checkboxMatch = trimmedLine.match(/^[-*]\s*\[(x|X| )\]\s*(.+)$/);
+      if (checkboxMatch) {
+        const isCorrect = checkboxMatch[1].toLowerCase() === 'x';
+        const text = checkboxMatch[2].trim();
+        choices.push({ text, isCorrect });
+      } else {
+        // Simple format: - text (first one is correct) OR * text (correct if marked with *)
+        const simpleMatch = trimmedLine.match(/^[-*]\s*(.+)$/);
+        if (simpleMatch) {
+          const isCorrect = trimmedLine.startsWith('*');
+          const text = simpleMatch[1].trim();
+          choices.push({ text, isCorrect });
+        }
+      }
+    }
+
+    if (choices.length > 0) {
+      card.choices = choices;
+      card.cardType = card.cardType || 'mcq';
+      card.answerType = 'choice';
+    }
+  }
+
+  // Extract answer section for numeric cards
+  // Format: ## answer\n42 OR ## answer\n3.14
+  const answerMatch = block.match(/##\s*answer\s*\n([\s\S]*?)(?=##|$)/i);
+  if (answerMatch && !card.choices) {
+    const answerContent = answerMatch[1].trim();
+    // Check if it's a numeric answer
+    const numericValue = answerContent.split('\n')[0].trim();
+    if (numericValue && /^-?[\d.,/]+$/.test(numericValue.replace(/\s/g, ''))) {
+      card.answerKey = numericValue;
+      card.cardType = card.cardType || 'numeric';
+      card.answerType = 'number';
+      // If no back is set, use the answer as back
+      if (!card.back) {
+        card.back = numericValue;
+      }
+    }
+  }
+
+  // Extract steps section for procedure cards
+  // Format: ## steps\n1. Step one\n2. Step two (hint: some hint)
+  const stepsMatch = block.match(/##\s*steps?\s*\n([\s\S]*?)(?=##|$)/i);
+  if (stepsMatch) {
+    const stepsContent = stepsMatch[1].trim();
+    const stepLines = stepsContent.split('\n').filter(line => line.trim());
+    const steps: ParsedCard['steps'] = [];
+
+    for (const line of stepLines) {
+      const trimmedLine = line.trim();
+      // Match numbered steps: 1. Content (hint: optional hint)
+      const stepMatch = trimmedLine.match(/^(\d+)[.)]\s*(.+?)(?:\s*\(hint:\s*([^)]+)\))?$/i);
+      if (stepMatch) {
+        const order = parseInt(stepMatch[1], 10);
+        const content = stepMatch[2].trim();
+        const hint = stepMatch[3]?.trim();
+        steps.push({ order, content, hint });
+      } else {
+        // Simple numbered format without hint
+        const simpleMatch = trimmedLine.match(/^(\d+)[.)]\s*(.+)$/);
+        if (simpleMatch) {
+          const order = parseInt(simpleMatch[1], 10);
+          const content = simpleMatch[2].trim();
+          steps.push({ order, content });
+        }
+      }
+    }
+
+    if (steps.length > 0) {
+      // Sort by order
+      steps.sort((a, b) => a.order - b.order);
+      card.steps = steps;
+      card.cardType = card.cardType || 'procedure';
+      card.answerType = 'ordered-steps';
+      // Set back to steps summary if not set
+      if (!card.back) {
+        card.back = steps.map(s => `${s.order}. ${s.content}`).join('\n');
+      }
+    }
+  }
+
   // Extract tags
   const tagsMatch = block.match(/tags:\s*\[(.*)\]/i);
   if (tagsMatch) {
@@ -314,6 +424,15 @@ function parseStructuredCard(block: string, errors: ParseError[]): ParsedCard | 
       .split(',')
       .map(t => t.trim())
       .filter(t => t.length > 0);
+  }
+
+  // Auto-detect card type if not set
+  if (!card.cardType) {
+    if (card.clozes && card.clozes.length > 0) {
+      card.cardType = 'cloze';
+    } else {
+      card.cardType = 'basic';
+    }
   }
 
   return card as ParsedCard;

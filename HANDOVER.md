@@ -7,6 +7,7 @@
 | 프로젝트명 | NeuroMath (뇌과학 기반 수학 학습 앱) |
 | 버전 | 0.1.0 |
 | 작성일 | 2025-12-15 |
+| **최종 수정일** | **2025-12-30** |
 | GitHub | https://github.com/hyeonjeho3-star/neuromath.git |
 | 기반 프로젝트 | NeuroTOEIC (수평 확장) |
 
@@ -43,37 +44,36 @@ neuromath-web/
 │   └── decks/                    # 학습 덱 파일 (11주차)
 │       ├── week01-prime-factorization.md
 │       ├── week02-integer-multiplication.md
-│       ├── week03-rational-numbers.md
-│       ├── week04-algebraic-expressions.md
-│       ├── week05-linear-expressions.md
-│       ├── week06-equations-basics.md
-│       ├── week07-complex-equations.md
-│       ├── week08-equation-applications.md
-│       ├── week09-coordinate-plane.md
-│       ├── week10-proportions.md
-│       └── week11-review-test.md
+│       └── ... (총 11개 파일)
 ├── src/
 │   ├── app/                      # Next.js App Router 페이지
 │   │   ├── page.tsx              # 홈 (대시보드)
 │   │   ├── study/page.tsx        # 학습 페이지
 │   │   ├── decks/page.tsx        # 덱 관리
 │   │   ├── deck/[deckId]/page.tsx # 개별 덱 상세
-│   │   ├── session/[deckId]/page.tsx # 학습 세션
-│   │   ├── stats/page.tsx        # 통계
+│   │   ├── session/[deckId]/page.tsx # 학습 세션 (수정됨)
+│   │   ├── stats/page.tsx        # 통계 (수정됨)
+│   │   ├── stats-guide/page.tsx  # 통계 해석 가이드 (신규)
 │   │   ├── science/page.tsx      # 과학적 배경 설명
 │   │   ├── settings/page.tsx     # 설정
 │   │   ├── layout.tsx            # 루트 레이아웃
 │   │   ├── providers.tsx         # Context Providers
 │   │   └── globals.css           # 전역 스타일
 │   ├── components/               # 재사용 컴포넌트
-│   │   ├── Navigation.tsx        # 네비게이션 (모바일/데스크톱)
+│   │   ├── Navigation.tsx        # 네비게이션 (수정됨)
 │   │   ├── FlashCard.tsx         # 플래시카드 UI
+│   │   ├── MCQCard.tsx           # 객관식 카드 (수정됨)
+│   │   ├── NumericCard.tsx       # 수치 입력 카드
+│   │   ├── ProcedureCard.tsx     # 절차형 카드
+│   │   ├── ErrorTagModal.tsx     # 오답 원인 분석 모달
 │   │   ├── RatingButtons.tsx     # 평가 버튼 (Again/Hard/Good/Easy)
-│   │   └── ClozeRenderer.tsx     # 빈칸채우기 렌더러
+│   │   ├── ClozeRenderer.tsx     # 빈칸채우기 렌더러
+│   │   ├── CardList.tsx          # 카드 목록
+│   │   └── CardTypeEditor.tsx    # 카드 타입 편집기
 │   ├── lib/
 │   │   ├── db/                   # 데이터베이스
 │   │   │   ├── index.ts          # Dexie DB 정의
-│   │   │   └── repository.ts     # CRUD 작업
+│   │   │   └── repository.ts     # CRUD 작업 (수정됨)
 │   │   ├── fsrs/                 # FSRS 알고리즘
 │   │   │   ├── algorithm.ts      # 핵심 수학 공식
 │   │   │   ├── scheduler.ts      # 스케줄링 로직
@@ -101,58 +101,281 @@ neuromath-web/
 
 ---
 
-## 3. 11주차 학습 커리큘럼
+## 3. 신규 추가/수정 사항 (2025-12-30)
 
-### 3.1 주차별 학습 내용
+### 3.1 MCQ 카드 오류 태그 모달 타이밍 수정
 
-| 주차 | 덱 파일 | 학습 내용 | 카드 수 |
-|------|---------|-----------|---------|
-| 1주차 | week01-prime-factorization.md | 소인수분해, 정수 덧뺄셈 | ~30장 |
-| 2주차 | week02-integer-multiplication.md | 정수 곱셈나눗셈, 혼합계산 | ~30장 |
-| 3주차 | week03-rational-numbers.md | 유리수 개념 및 사칙연산 | ~30장 |
-| 4주차 | week04-algebraic-expressions.md | 문자의 사용법, 식의 값 | ~30장 |
-| 5주차 | week05-linear-expressions.md | 일차식 덧셈뺄셈 | ~30장 |
-| 6주차 | week06-equations-basics.md | 등식, 일차방정식 기초 | ~30장 |
-| 7주차 | week07-complex-equations.md | 복잡한 일차방정식 | ~30장 |
-| 8주차 | week08-equation-applications.md | 일차방정식 활용 (문장제) | ~30장 |
-| 9주차 | week09-coordinate-plane.md | 좌표평면, 사분면 | ~30장 |
-| 10주차 | week10-proportions.md | 정비례, 반비례 | ~30장 |
-| 11주차 | week11-review-test.md | 전체 범위 종합 복습 | ~30장 |
+**문제**: 객관식(MCQ) 오답 시 결과 확인 전에 오류 태그 모달이 즉시 표시됨
 
-### 3.2 덱 파일 형식 (Q&A Format)
+**해결**: 사용자가 오답 원인을 확인한 후 선택적으로 오류 태그 기록 가능하도록 변경
 
-```markdown
-# 1주차 - 소인수분해와 정수의 덧셈/뺄셈
-tags: 중1, 소인수분해, 정수, 덧셈, 뺄셈
+**수정 파일**:
+- `src/components/MCQCard.tsx`
+- `src/app/session/[deckId]/page.tsx`
 
----
+**상세 변경**:
 
-Q: 소수의 정의는?
-A: 1보다 큰 자연수 중에서 약수가 1과 자기 자신뿐인 수
+```typescript
+// MCQCard.tsx - 신규 상태 및 버튼 추가
+const [hasCalledOnAnswer, setHasCalledOnAnswer] = useState(false);
 
-Q: 12를 소인수분해하면?
-A: 2² × 3
-
-Q: (+7) + (-3) = ?
-A: +4 (다른 부호끼리 더하면 절댓값이 큰 수에서 작은 수를 빼고, 절댓값이 큰 수의 부호를 붙임)
+// 답변 확인 후 버튼 UI
+{isAnswered && !hasCalledOnAnswer && (
+  <div className="mt-4 flex gap-3">
+    {/* 오답일 때만 표시 */}
+    {!isCorrectAnswer && onRequestErrorTag && (
+      <button onClick={onRequestErrorTag} className="...">
+        <Tag size={18} />
+        오류 유형 기록
+      </button>
+    )}
+    {/* 다음 카드로 이동 */}
+    <button onClick={handleNext} className="...">
+      다음
+      <ArrowRight size={18} />
+    </button>
+  </div>
+)}
 ```
 
-### 3.3 지원 덱 형식
+```typescript
+// session/[deckId]/page.tsx - MCQ용 skipErrorTagModal 플래그 추가
+const handleAutoGradedAnswer = async (
+  isCorrect: boolean,
+  userAnswer: string,
+  skipErrorTagModal = false  // MCQ는 true로 전달
+) => {
+  // ...
+  if (!isCorrect && cardId) {
+    setPendingErrorCard({ cardId });
+    if (!skipErrorTagModal) {  // MCQ가 아닐 때만 자동 표시
+      setShowErrorTagModal(true);
+    }
+  }
+};
 
-| 형식 | 예시 | 용도 |
-|------|------|------|
-| Q&A | `Q: 질문\nA: 답변` | 단순 문답형 (현재 사용) |
-| Simple | `앞면 \| 뒷면` | 파이프 구분 형식 |
-| Cloze | `{{c1::답::힌트}}` | 빈칸 채우기 |
-| Structured | `## front\n## back` | 복잡한 구조 |
+// MCQ에서 수동으로 오류 태그 모달 열기
+const handleMCQRequestErrorTag = () => {
+  if (pendingErrorCard) {
+    setShowErrorTagModal(true);
+  }
+};
+```
 
 ---
 
-## 4. FSRS 4.5 알고리즘
+### 3.2 기억 확률(Retrievability) 계산 오류 수정
 
-### 4.1 핵심 개념
+**문제**: 통계 페이지에서 기억 확률이 항상 100%로 표시됨
 
-FSRS (Free Spaced Repetition Scheduler)는 기억의 두 가지 핵심 변수를 추적합니다:
+**원인**: DB에 저장된 `retrievability` 값(마지막 복습 시점 기준)을 그대로 사용
+
+**해결**: 현재 시점 기준으로 FSRS 공식을 이용해 실시간 계산
+
+**수정 파일**:
+- `src/app/stats/page.tsx`
+
+**상세 변경**:
+
+```typescript
+// 기존: 저장된 값 사용
+// const ret = card.retrievability;  // 항상 ~1.0
+
+// 수정: 실시간 계산
+import { retrievability as calcRetrievability } from '@/lib/fsrs/algorithm';
+
+const reviewedCards = cards.filter(c =>
+  c.state !== 'new' && c.lastReview && c.stability > 0
+);
+
+for (const card of reviewedCards) {
+  const lastReview = new Date(card.lastReview!);
+  const elapsedDays = (now.getTime() - lastReview.getTime()) / (1000 * 60 * 60 * 24);
+
+  // FSRS 공식: R(t) = (1 + t / (9 × S))^(-1)
+  const ret = calcRetrievability(elapsedDays, card.stability);
+
+  // 분류: 90%+ (강함), 70-90% (적정), <70% (약함)
+  if (ret >= 0.9) highRet++;
+  else if (ret >= 0.7) mediumRet++;
+  else lowRet++;
+}
+```
+
+---
+
+### 3.3 마스터 카드 판정 기준 수정
+
+**문제**: 덱 퍼포먼스에서 학습 완료 후에도 0% 마스터로 표시
+
+**원인**: `stability >= 30` 조건이 너무 엄격함 (30일 이상 기억 유지 필요)
+
+**해결**: `state === 'review'` 조건으로 변경 (Learning 단계 졸업 = 마스터)
+
+**수정 파일**:
+- `src/lib/db/repository.ts`
+- `src/app/stats/page.tsx`
+
+**상세 변경**:
+
+```typescript
+// repository.ts - getDeckStats()
+return {
+  // ...
+  masteredCards: cards.filter(c => c.state === 'review').length,
+  // 기존: cards.filter(c => c.stability >= 30).length
+};
+
+// stats/page.tsx
+const masteredCards = cards.filter((c) => c.state === 'review').length;
+```
+
+**카드 상태 설명**:
+| 상태 | 의미 |
+|------|------|
+| `new` | 아직 학습하지 않은 카드 |
+| `learning` | 처음 학습 중 (단기 반복) |
+| `review` | **마스터!** 정기 복습 단계 (장기 기억) |
+| `relearning` | 틀려서 다시 학습 중 |
+
+---
+
+### 3.4 통계 해석 가이드 페이지 신규 추가
+
+**경로**: `/stats-guide`
+
+**파일**: `src/app/stats-guide/page.tsx` (신규)
+
+**네비게이션 수정**: `src/components/Navigation.tsx`
+
+```typescript
+const navItems = [
+  { href: '/', label: 'Home', icon: Home },
+  { href: '/study', label: 'Study', icon: BookOpen },
+  { href: '/decks', label: 'Decks', icon: FolderOpen },
+  { href: '/stats', label: 'Stats', icon: BarChart3 },
+  { href: '/stats-guide', label: 'Guide', icon: HelpCircle },  // 신규
+  { href: '/science', label: 'Science', icon: Brain },
+  { href: '/settings', label: 'Settings', icon: Settings },
+];
+```
+
+**페이지 내용**:
+
+1. **주요 지표 해석**
+   - Day Streak (연속 학습일): 7일+/30일+ 기준 설명
+   - Accuracy (정확도): 80%+/60-80%/<60% 등급
+   - Mastered (마스터 카드): Review 상태 = 마스터
+
+2. **기억 확률 분포**
+   - FSRS 수식: `R(t) = (1 + t / (9 × S))^(-1)`
+   - 90%+/70-90%/<70% 분류 기준
+
+3. **오답 패턴 분석**
+   - 부주의 (careless): 실수로 틀림 → 확인 습관
+   - 개념 미숙 (concept): 이해 부족 → 교재 재학습
+   - 계산 실수 (calculation): 계산 오류 → 검산 습관
+   - 암기 부족 (memory): 기억 실패 → 반복 학습
+   - 절차 오류 (procedure): 순서 오류 → 단계별 정리
+   - 기타 (other)
+
+4. **덱 퍼포먼스**
+   - Mastered %: Review 상태 비율
+   - Due: 오늘 복습 예정 카드
+   - New: 미학습 카드
+
+5. **통계 활용 팁**
+   - 정확도 70% 미만 → 새 카드 중단
+   - 기억 확률 낮음 → 즉시 복습
+   - 오답 패턴 분석 → 학습법 조정
+   - Streak 집착 금지 → 장기적 관점
+
+---
+
+## 4. 카드 타입 시스템
+
+### 4.1 지원 카드 타입 (5종)
+
+| 타입 | 설명 | 답변 방식 | 컴포넌트 |
+|------|------|----------|----------|
+| `basic` | 기본 Q&A | 플립 후 자기 평가 | FlashCard |
+| `cloze` | 빈칸 채우기 | `{{c1::정답::힌트}}` | FlashCard + ClozeRenderer |
+| `mcq` | 객관식 | 선택지 중 정답 선택 | MCQCard |
+| `numeric` | 수치 입력 | 숫자 직접 입력 | NumericCard |
+| `procedure` | 절차형 | 단계 순서 배열 | ProcedureCard |
+
+### 4.2 마크다운 파일 형식
+
+#### 기본 Q&A
+```markdown
+# 덱 이름
+tags: 수학, 대수
+---
+Q: 2 + 2는?
+A: 4
+```
+
+#### 클로즈 (빈칸 채우기)
+```markdown
+이차방정식의 근의 공식은 {{c1::(-b ± √(b²-4ac)) / 2a::근의 공식}}이다.
+|trap: (-b ± √(b²+4ac)) / 2a, (-b - √(b²-4ac)) / 2a
+```
+
+#### 객관식 (MCQ)
+```markdown
+# Card Title
+type: mcq
+
+## front
+다음 중 소수가 아닌 것은?
+
+## choices
+- [ ] 2
+- [ ] 3
+- [x] 4
+- [ ] 5
+
+## back
+4 = 2 × 2 이므로 소수가 아닙니다.
+```
+
+#### 수치 입력 (Numeric)
+```markdown
+# 계산 문제
+type: numeric
+
+## front
+√144의 값은?
+
+## answer
+12
+
+## back
+12 × 12 = 144
+```
+
+#### 절차형 (Procedure)
+```markdown
+# 이차방정식 풀이
+type: procedure
+
+## front
+x² - 5x + 6 = 0 을 인수분해로 푸시오.
+
+## steps
+1. 두 수의 곱이 6, 합이 -5인 수 찾기
+2. (x - 2)(x - 3) = 0 으로 인수분해
+3. x = 2 또는 x = 3
+
+## back
+x = 2, x = 3
+```
+
+---
+
+## 5. FSRS 4.5 알고리즘
+
+### 5.1 핵심 개념
 
 | 변수 | 설명 | 범위 |
 |------|------|------|
@@ -160,7 +383,7 @@ FSRS (Free Spaced Repetition Scheduler)는 기억의 두 가지 핵심 변수를
 | **Difficulty (D)** | 카드의 고유 난이도 | 1 ~ 10 |
 | **Retrievability (R)** | 현재 기억 확률 | 0 ~ 1 |
 
-### 4.2 주요 공식 (algorithm.ts)
+### 5.2 주요 공식 (algorithm.ts)
 
 ```typescript
 // 1. 기억 확률 계산
@@ -176,7 +399,7 @@ S'_forget = w11 × D^(-w12) × ((S+1)^w13 - 1) × e^(w14×(1-R))
 I(S, R) = S / 0.2346 × ln(R_target)
 ```
 
-### 4.3 평가 등급
+### 5.3 평가 등급
 
 | 등급 | 의미 | 효과 |
 |------|------|------|
@@ -185,296 +408,142 @@ I(S, R) = S / 0.2346 × ln(R_target)
 | 3 (Good) | 정상 기억 | 안정성 정상 증가 |
 | 4 (Easy) | 쉽게 기억 | 안정성 크게 증가, 보너스 적용 |
 
-### 4.4 기본 파라미터 (17개)
-
-```typescript
-const DEFAULT_FSRS_PARAMS = {
-  w: [
-    0.4,    // w0: Again 초기 안정성
-    0.6,    // w1: Hard 초기 안정성
-    2.4,    // w2: Good 초기 안정성
-    5.8,    // w3: Easy 초기 안정성
-    4.93,   // w4: 초기 난이도 기준
-    0.94,   // w5: 난이도 조정 계수
-    0.86,   // w6: 난이도 변화율
-    0.01,   // w7: 난이도 평균 회귀
-    1.49,   // w8: 안정성 증가 기준
-    0.14,   // w9: 안정성 감소 지수
-    0.94,   // w10: 망각 영향 계수
-    2.18,   // w11: 망각 후 안정성 기준
-    0.05,   // w12: 난이도의 망각 영향
-    0.34,   // w13: 안정성의 망각 영향
-    1.26,   // w14: 기억확률의 망각 영향
-    0.29,   // w15: Hard 페널티
-    2.61,   // w16: Easy 보너스
-  ],
-  requestRetention: 0.9,  // 목표 기억 확률 90%
-  maximumInterval: 36500, // 최대 간격 100년
-};
-```
-
 ---
 
-## 5. 데이터베이스 구조
+## 6. 데이터베이스 구조
 
-### 5.1 IndexedDB 스키마 (Dexie.js)
+### 6.1 IndexedDB 스키마 (Dexie.js)
 
 ```typescript
-// src/lib/db/index.ts
-
-class NeuroMathDatabase extends Dexie {
-  decks!: Table<Deck, string>;
-  cards!: Table<Card, string>;
-  reviewLogs!: Table<ReviewLog, string>;
-  settings!: Table<Settings, string>;
-
-  constructor() {
-    super('neuromath');  // 데이터베이스 이름
-
-    this.version(1).stores({
-      decks: 'id, name, updatedAt',
-      cards: 'id, deckId, state, dueDate, [deckId+state], [deckId+dueDate]',
-      reviewLogs: 'id, cardId, deckId, reviewedAt, [deckId+reviewedAt]',
-      settings: 'key',
-    });
-  }
-}
+// Version 2 (현재)
+this.version(2).stores({
+  decks: 'id, name, updatedAt',
+  cards: 'id, deckId, state, dueDate, cardType, [deckId+state], [deckId+dueDate], [deckId+cardType]',
+  reviewLogs: 'id, cardId, deckId, reviewedAt, errorTag, [deckId+reviewedAt], [deckId+errorTag]',
+  settings: 'key',
+});
 ```
 
-### 5.2 주요 테이블
+### 6.2 주요 테이블
 
-#### Deck (덱)
-```typescript
-interface Deck {
-  id: string;           // UUID
-  name: string;         // 덱 이름
-  description?: string; // 설명
-  tags: string[];       // 태그 배열
-  cardCount: number;    // 총 카드 수
-  newCount: number;     // 새 카드 수
-  learningCount: number; // 학습 중 카드 수
-  reviewCount: number;  // 복습 카드 수
-  sourceFile?: string;  // 원본 파일명
-  createdAt: Date;
-  updatedAt: Date;
-}
-```
-
-#### Card (카드)
+#### Card (카드) - 확장 필드
 ```typescript
 interface Card {
-  id: string;           // UUID
-  deckId: string;       // 소속 덱 ID
-  front: string;        // 앞면 (질문)
-  back: string;         // 뒷면 (답변)
-  clozes: ClozeItem[];  // 빈칸채우기 정보
-  trapOptions: string[]; // 오답 선택지
-  tags: string[];       // 개별 태그
+  // 기본 필드
+  id: string;
+  deckId: string;
+  front: string;
+  back: string;
+
+  // 카드 타입 관련 (신규)
+  cardType: 'basic' | 'cloze' | 'mcq' | 'numeric' | 'procedure';
+  answerType: 'text' | 'number' | 'choice' | 'ordered-steps';
+  answerKey?: string;      // 수치형 정답
+  choices?: Choice[];      // MCQ 선택지
+  steps?: Step[];          // 절차형 단계
 
   // FSRS 상태
   state: 'new' | 'learning' | 'review' | 'relearning';
-  difficulty: number;   // 1 ~ 10
-  stability: number;    // 기억 안정성 (일)
-  retrievability: number; // 현재 기억 확률
-  dueDate: Date;        // 다음 복습일
+  difficulty: number;
+  stability: number;
+  retrievability: number;
+  dueDate: Date;
   lastReview: Date | null;
-  reps: number;         // 총 복습 횟수
-  lapses: number;       // 망각 횟수
-  elapsedDays: number;  // 마지막 복습 후 경과일
-  scheduledDays: number; // 예정된 간격
+  reps: number;
+  lapses: number;
+  elapsedDays: number;
+  scheduledDays: number;
 
   createdAt: Date;
   updatedAt: Date;
 }
 ```
 
-#### ReviewLog (복습 기록)
+#### ReviewLog (복습 기록) - 확장 필드
 ```typescript
 interface ReviewLog {
+  // 기본 필드
   id: string;
   cardId: string;
   deckId: string;
-  rating: number;       // 1~4
-  state: CardState;     // 복습 시 상태
-  stability: number;    // 복습 후 안정성
-  difficulty: number;   // 복습 후 난이도
-  elapsedDays: number;  // 경과일
-  lastElapsedDays: number;
-  scheduledDays: number; // 다음 간격
-  elapsedMs: number;    // 응답 시간 (ms)
+  rating: number;
+  state: CardState;
+
+  // 확장 필드 (신규)
+  isCorrect?: boolean;         // 정답 여부
+  userAnswer?: string;         // 사용자 답변
+  selectedChoice?: string;     // 선택한 MCQ 답
+  errorTag?: ErrorTag;         // 오답 원인 분류
+
   reviewedAt: Date;
 }
 ```
 
----
-
-## 6. 상태 관리 (Zustand)
-
-### 6.1 deckStore.ts
+#### ErrorTag 타입
 ```typescript
-interface DeckStore {
-  // 상태
-  decks: Deck[];
-  deckStats: Record<string, DeckStats>;
-  isLoading: boolean;
-
-  // 액션
-  loadDecks(): Promise<void>;
-  importDeck(parsed: ParsedDeck): Promise<string>;
-  deleteDeck(id: string): Promise<void>;
-  refreshDeckStats(deckId: string): Promise<void>;
-}
-```
-
-### 6.2 sessionStore.ts
-```typescript
-interface SessionStore {
-  // 상태
-  currentDeck: Deck | null;
-  currentCard: Card | null;
-  queue: Card[];
-  isFlipped: boolean;
-  sessionStats: { reviewed: number; correct: number; };
-
-  // 액션
-  startSession(deckId: string): Promise<void>;
-  flipCard(): void;
-  rateCard(rating: Rating): Promise<void>;
-  endSession(): void;
-}
-```
-
-### 6.3 settingsStore.ts
-```typescript
-interface SettingsStore {
-  // 상태
-  fsrsParams: FSRSParams;
-  dailyNewCards: number;
-  dailyReviewCards: number;
-  theme: 'light' | 'dark' | 'system';
-
-  // 액션
-  updateFSRSParams(params: Partial<FSRSParams>): void;
-  setTheme(theme: string): void;
-}
+type ErrorTag = 'careless' | 'concept' | 'calculation' | 'memory' | 'procedure' | 'other';
 ```
 
 ---
 
-## 7. 주요 컴포넌트
+## 7. 빌드 및 배포
 
-### 7.1 Navigation.tsx
-- 모바일: 하단 탭 네비게이션 (5개 항목)
-- 데스크톱: 좌측 사이드바 (6개 항목)
-- 블루 테마 (`text-blue-500`)
-
-### 7.2 FlashCard.tsx
-- 카드 뒤집기 애니메이션
-- 앞면/뒷면 전환
-- 마크다운 렌더링
-
-### 7.3 RatingButtons.tsx
-- Again (빨강), Hard (주황), Good (초록), Easy (청록)
-- 예상 다음 복습 간격 표시
-- 터치 친화적 UI
-
-### 7.4 ClozeRenderer.tsx
-- `{{c1::answer::hint}}` 형식 파싱
-- 빈칸 표시 및 답안 공개
-
----
-
-## 8. 빌드 및 배포
-
-### 8.1 개발 환경 실행
+### 7.1 개발 환경 실행
 ```bash
-cd neuromath-web
+cd neuromath
 npm install
 npm run dev
 # http://localhost:3000
 ```
 
-### 8.2 프로덕션 빌드
+### 7.2 프로덕션 빌드
 ```bash
 npm run build
-# .next/ 폴더에 최적화된 빌드 생성
-
 npm run start
-# 프로덕션 서버 실행
 ```
-
-### 8.3 빌드 결과
-```
-Route (app)
-├ ○ /                    # 홈 (정적)
-├ ○ /decks               # 덱 목록 (정적)
-├ ○ /science             # 과학 설명 (정적)
-├ ○ /settings            # 설정 (정적)
-├ ○ /stats               # 통계 (정적)
-├ ○ /study               # 학습 (정적)
-├ ƒ /deck/[deckId]       # 덱 상세 (동적)
-└ ƒ /session/[deckId]    # 학습 세션 (동적)
-```
-
-### 8.4 알려진 경고
-```
-⚠ Unsupported metadata themeColor is configured in metadata export.
-  Please move it to viewport export instead.
-```
-- Next.js 16에서 `themeColor`가 `metadata`에서 `viewport`로 이동됨
-- 기능에는 영향 없음, 향후 수정 권장
 
 ---
 
-## 9. 향후 개선 사항
+## 8. 향후 개선 사항
 
-### 9.1 단기 개선
-- [ ] `themeColor` → `viewport` 마이그레이션
-- [ ] 모바일 네비게이션 색상 통일 (orange → blue)
+### 8.1 단기 개선
 - [ ] PWA 지원 추가 (오프라인 사용)
 - [ ] 학습 알림 기능
+- [ ] LaTeX 수식 렌더링
 
-### 9.2 중기 개선
+### 8.2 중기 개선
 - [ ] 사용자 맞춤 FSRS 파라미터 최적화
-- [ ] 학습 데이터 내보내기/가져오기
-- [ ] 다중 사용자 프로필
-- [ ] 동기화 기능 (선택적 서버 연동)
+- [ ] 학습 데이터 내보내기/가져오기 (JSON/CSV)
+- [ ] 클라우드 동기화 (선택적)
 
-### 9.3 장기 개선
+### 8.3 장기 개선
 - [ ] AI 기반 오답 분석
 - [ ] 개념 맵 시각화
-- [ ] 음성 인식 답변
 - [ ] 게이미피케이션 요소
 
 ---
 
-## 10. 참고 자료
+## 9. 참고 자료
 
-### 10.1 FSRS 알고리즘
+### 9.1 FSRS 알고리즘
 - [FSRS GitHub](https://github.com/open-spaced-repetition/fsrs4anki)
 - [FSRS 논문](https://arxiv.org/abs/2402.00296)
-- [Anki FSRS 위키](https://github.com/open-spaced-repetition/fsrs4anki/wiki)
 
-### 10.2 기술 문서
+### 9.2 기술 문서
 - [Next.js 16 문서](https://nextjs.org/docs)
 - [Dexie.js 문서](https://dexie.org/docs/)
 - [Zustand 문서](https://docs.pmnd.rs/zustand/getting-started/introduction)
 
-### 10.3 학습 콘텐츠 출처
-- hsjmath-1.txt ~ hsjmath-3-2.txt (중1 수학 PDF 텍스트 추출)
-- 승쥬방학수학 11주 완성 로드맵
+---
+
+## 10. 변경 이력
+
+| 날짜 | 버전 | 변경 내용 |
+|------|------|----------|
+| 2025-12-15 | 0.1.0 | 초기 버전 |
+| 2025-12-30 | 0.1.1 | MCQ 오류 태그 타이밍 수정, 기억 확률 계산 수정, 마스터 판정 기준 수정, 통계 가이드 페이지 추가 |
 
 ---
 
-## 11. 연락처 및 지원
-
-| 항목 | 정보 |
-|------|------|
-| GitHub Repository | https://github.com/hyeonjeho3-star/neuromath.git |
-| 이슈 등록 | GitHub Issues |
-| 최종 빌드 확인일 | 2025-12-15 |
-| 빌드 상태 | ✅ 성공 (Next.js 16.0.10) |
-
----
-
-*이 문서는 NeuroMath 프로젝트의 전체적인 구조와 기술적 세부사항을 담고 있습니다. 프로젝트 인수인계 시 본 문서를 참고하여 개발을 이어가시기 바랍니다.*
+*이 문서는 NeuroMath 프로젝트의 전체적인 구조와 기술적 세부사항을 담고 있습니다.*
+*최종 수정: 2025-12-30 (Claude Opus 4.5)*

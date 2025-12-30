@@ -2,20 +2,29 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, BookOpen, FolderOpen, BarChart3, Settings, Brain } from 'lucide-react';
+import { Home, BookOpen, FolderOpen, BarChart3, Settings, Brain, HelpCircle, LogOut, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useUserStore } from '@/stores/userStore';
 
 const navItems = [
   { href: '/', label: 'Home', icon: Home },
   { href: '/study', label: 'Study', icon: BookOpen },
   { href: '/decks', label: 'Decks', icon: FolderOpen },
   { href: '/stats', label: 'Stats', icon: BarChart3 },
+  { href: '/stats-guide', label: 'Guide', icon: HelpCircle },
   { href: '/science', label: 'Science', icon: Brain },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export function Navigation() {
   const pathname = usePathname();
+  const { currentUser, logout } = useUserStore();
+
+  const handleLogout = () => {
+    if (confirm('로그아웃 하시겠습니까?')) {
+      logout();
+    }
+  };
 
   return (
     <>
@@ -75,7 +84,32 @@ export function Navigation() {
           })}
         </nav>
 
+        {/* User info and logout */}
         <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+          {currentUser && (
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
+                  <User size={16} className="text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                    {currentUser.displayName}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                    @{currentUser.username}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="p-2 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+                title="로그아웃"
+              >
+                <LogOut size={18} />
+              </button>
+            </div>
+          )}
           <p className="text-xs text-gray-400">FSRS 4.5 Algorithm</p>
         </div>
       </aside>

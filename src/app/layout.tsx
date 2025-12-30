@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
@@ -13,6 +13,9 @@ export const metadata: Metadata = {
   title: 'NeuroMath - 뇌과학 기반 수학 학습',
   description: '간격 반복과 능동적 회상으로 중학 수학을 마스터하세요',
   manifest: '/manifest.json',
+};
+
+export const viewport: Viewport = {
   themeColor: '#3B82F6',
 };
 

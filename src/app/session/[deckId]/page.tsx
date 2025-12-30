@@ -8,7 +8,13 @@ import { useDeckStore } from '@/stores/deckStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { FSRSScheduler, type Rating } from '@/lib/fsrs';
 import { FlashCard } from '@/components/FlashCard';
+import { MCQCard } from '@/components/MCQCard';
+import { NumericCard } from '@/components/NumericCard';
+import { ProcedureCard } from '@/components/ProcedureCard';
 import { RatingButtons } from '@/components/RatingButtons';
+import { ErrorTagModal } from '@/components/ErrorTagModal';
+import type { ErrorTag } from '@/lib/db';
+import { addReviewLog } from '@/lib/db/repository';
 
 export default function SessionPage() {
   const params = useParams();
@@ -42,6 +48,8 @@ export default function SessionPage() {
 
   const [isFlipped, setIsFlipped] = useState(false);
   const [showResult, setShowResult] = useState(false);
+  const [showErrorTagModal, setShowErrorTagModal] = useState(false);
+  const [pendingErrorCard, setPendingErrorCard] = useState<{ cardId: string; logId?: string } | null>(null);
 
   // Track if session was already started to prevent re-initialization
   const sessionStartedRef = useRef(false);
@@ -124,6 +132,62 @@ export default function SessionPage() {
     // Small delay to allow flip animation to complete before showing next card
     await new Promise(resolve => setTimeout(resolve, 150));
     await answerCard(rating);
+
+    // Show error tag modal for incorrect answers (Again or Hard)
+    if (rating <= 2 && currentCard) {
+      setPendingErrorCard({ cardId: currentCard.id });
+      setShowErrorTagModal(true);
+    }
+  };
+
+  // Handle auto-graded card types (MCQ, Numeric, Procedure)
+  // Note: For MCQ cards, error tag modal is triggered by user clicking "오류 유형 기록" button
+  const handleAutoGradedAnswer = async (isCorrect: boolean, userAnswer: string, skipErrorTagModal = false) => {
+    const cardId = currentCard?.id;
+    // Map boolean to FSRS rating: correct = Good (3), incorrect = Again (1)
+    const rating: Rating = isCorrect ? 3 : 1;
+    await answerCard(rating, { isCorrect, userAnswer });
+
+    // Store pending error card info for later use (if user clicks error tag button)
+    if (!isCorrect && cardId) {
+      setPendingErrorCard({ cardId });
+      // Only auto-show modal for non-MCQ card types (Numeric, Procedure)
+      if (!skipErrorTagModal) {
+        setShowErrorTagModal(true);
+      }
+    }
+  };
+
+  // Handler for MCQ card requesting error tag modal
+  const handleMCQRequestErrorTag = () => {
+    if (pendingErrorCard) {
+      setShowErrorTagModal(true);
+    }
+  };
+
+  // Handle error tag selection
+  const handleErrorTagSelect = async (tag: ErrorTag) => {
+    if (pendingErrorCard && deckId) {
+      // Update the most recent review log for this card with the error tag
+      // This is a simplified approach - in production you might want to track log IDs
+      const { db } = await import('@/lib/db');
+      const recentLog = await db.reviewLogs
+        .where('cardId')
+        .equals(pendingErrorCard.cardId)
+        .reverse()
+        .first();
+
+      if (recentLog) {
+        await db.reviewLogs.update(recentLog.id, { errorTag: tag });
+      }
+    }
+    setShowErrorTagModal(false);
+    setPendingErrorCard(null);
+  };
+
+  const handleErrorTagClose = () => {
+    setShowErrorTagModal(false);
+    setPendingErrorCard(null);
   };
 
   const handleEndSession = async () => {
@@ -238,25 +302,66 @@ export default function SessionPage() {
         </div>
       </div>
 
-      {/* Card */}
-      <div className="flex-1 flex items-center justify-center p-4">
-        <FlashCard
-          card={currentCard}
-          isFlipped={isFlipped}
-          onFlip={() => setIsFlipped(true)}
-        />
-      </div>
-
-      {/* Rating buttons */}
-      <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-        {isFlipped ? (
-          <RatingButtons onRate={handleRate} intervals={getIntervalLabels()} />
+      {/* Card - render based on card type */}
+      <div className="flex-1 flex items-center justify-center p-4 overflow-auto">
+        {currentCard.cardType === 'mcq' && currentCard.choices ? (
+          <MCQCard
+            key={currentCard.id}
+            card={currentCard}
+            onAnswer={(isCorrect, selectedChoiceId) =>
+              handleAutoGradedAnswer(isCorrect, selectedChoiceId, true)
+            }
+            onRequestErrorTag={handleMCQRequestErrorTag}
+            disabled={isPaused}
+          />
+        ) : currentCard.cardType === 'numeric' && currentCard.answerKey ? (
+          <NumericCard
+            key={currentCard.id}
+            card={currentCard}
+            onAnswer={(isCorrect, userAnswer) =>
+              handleAutoGradedAnswer(isCorrect, userAnswer)
+            }
+            disabled={isPaused}
+          />
+        ) : currentCard.cardType === 'procedure' && currentCard.steps ? (
+          <ProcedureCard
+            key={currentCard.id}
+            card={currentCard}
+            onAnswer={(isCorrect, userOrder) =>
+              handleAutoGradedAnswer(isCorrect, JSON.stringify(userOrder))
+            }
+            disabled={isPaused}
+          />
         ) : (
-          <p className="text-center text-gray-500 dark:text-gray-400 py-4">
-            Tap the card to reveal the answer
-          </p>
+          // Default: basic/cloze cards use FlashCard
+          <FlashCard
+            card={currentCard}
+            isFlipped={isFlipped}
+            onFlip={() => setIsFlipped(true)}
+          />
         )}
       </div>
+
+      {/* Rating buttons - only show for basic/cloze cards */}
+      {(currentCard.cardType === 'basic' || currentCard.cardType === 'cloze' || !currentCard.cardType) && (
+        <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+          {isFlipped ? (
+            <RatingButtons onRate={handleRate} intervals={getIntervalLabels()} />
+          ) : (
+            <p className="text-center text-gray-500 dark:text-gray-400 py-4">
+              Tap the card to reveal the answer
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Error Tag Modal */}
+      <ErrorTagModal
+        isOpen={showErrorTagModal}
+        onClose={handleErrorTagClose}
+        onSelect={handleErrorTagSelect}
+        cardFront={pendingErrorCard ? cards.find(c => c.id === pendingErrorCard.cardId)?.front : undefined}
+      />
     </div>
   );
 }

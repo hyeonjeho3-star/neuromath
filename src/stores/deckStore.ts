@@ -1,5 +1,6 @@
 /**
  * Deck Store - Manages deck list and selection state
+ * User-scoped: All operations are scoped to the current user
  */
 
 import { create } from 'zustand';
@@ -14,6 +15,10 @@ export interface DeckState {
   isLoading: boolean;
   error: string | null;
 
+  // Current user context
+  currentUserId: string | null;
+  setCurrentUserId: (userId: string | null) => void;
+
   loadDecks: () => Promise<void>;
   selectDeck: (id: string | null) => void;
   getDeck: (id: string) => Deck | undefined;
@@ -22,6 +27,7 @@ export interface DeckState {
   refreshDeckStats: (id: string) => Promise<void>;
   refreshAllStats: () => Promise<void>;
   clearError: () => void;
+  clearData: () => void;
 }
 
 export const useDeckStore = create<DeckState>((set, get) => ({
@@ -30,12 +36,33 @@ export const useDeckStore = create<DeckState>((set, get) => ({
   deckStats: {},
   isLoading: false,
   error: null,
+  currentUserId: null,
+
+  setCurrentUserId: (userId) => {
+    const prevUserId = get().currentUserId;
+    if (prevUserId !== userId) {
+      // Clear data when user changes
+      set({
+        currentUserId: userId,
+        decks: [],
+        selectedDeckId: null,
+        deckStats: {},
+        error: null,
+      });
+    }
+  },
 
   loadDecks: async () => {
+    const { currentUserId } = get();
+    if (!currentUserId) {
+      set({ decks: [], error: '사용자가 로그인되지 않았습니다.' });
+      return;
+    }
+
     set({ isLoading: true, error: null });
 
     try {
-      const decks = await repository.getAllDecks();
+      const decks = await repository.getAllDecks(currentUserId);
       set({ decks, isLoading: false });
       await get().refreshAllStats();
     } catch (error) {
@@ -59,10 +86,15 @@ export const useDeckStore = create<DeckState>((set, get) => ({
   },
 
   importDeck: async (parsedDeck) => {
+    const { currentUserId } = get();
+    if (!currentUserId) {
+      throw new Error('사용자가 로그인되지 않았습니다.');
+    }
+
     set({ isLoading: true, error: null });
 
     try {
-      const deck = await repository.importDeck(parsedDeck);
+      const deck = await repository.importDeck(currentUserId, parsedDeck);
 
       set((state) => ({
         decks: [deck, ...state.decks],
@@ -154,5 +186,14 @@ export const useDeckStore = create<DeckState>((set, get) => ({
 
   clearError: () => {
     set({ error: null });
+  },
+
+  clearData: () => {
+    set({
+      decks: [],
+      selectedDeckId: null,
+      deckStats: {},
+      error: null,
+    });
   },
 }));

@@ -1,5 +1,6 @@
 /**
  * Session Store - Manages active learning session state
+ * User-scoped: All operations use the current user context
  */
 
 import { create } from 'zustand';
@@ -11,6 +12,10 @@ import { useSettingsStore } from './settingsStore';
 export type SessionMode = 'micro' | 'timed' | 'all';
 
 export interface SessionState {
+  // Current user context
+  currentUserId: string | null;
+  setCurrentUserId: (userId: string | null) => void;
+
   // Session info
   isActive: boolean;
   mode: SessionMode;
@@ -38,15 +43,17 @@ export interface SessionState {
     deckId: string,
     options: { mode: SessionMode; minutes: number; maxNew?: number; maxReview?: number }
   ) => Promise<void>;
-  answerCard: (rating: Rating) => Promise<void>;
+  answerCard: (rating: Rating, extra?: { isCorrect?: boolean; userAnswer?: string; selectedChoice?: string }) => Promise<void>;
   endSession: () => Promise<{ reviewed: number; correct: number; incorrect: number } | null>;
   pauseTimer: () => void;
   resumeTimer: () => void;
   dismissRestReminder: () => void;
   tick: () => void;
+  clearSession: () => void;
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
+  currentUserId: null,
   isActive: false,
   mode: 'micro',
   deckId: null,
@@ -64,6 +71,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   remainingSeconds: 600,
   isPaused: false,
   showRestReminder: false,
+
+  setCurrentUserId: (userId) => {
+    set({ currentUserId: userId });
+  },
 
   startSession: async (deckId, options) => {
     const { mode, minutes, maxNew = 20, maxReview = 100 } = options;
@@ -95,7 +106,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     });
   },
 
-  answerCard: async (rating) => {
+  answerCard: async (rating, extra) => {
     const { currentCard, cards, currentIndex, deckId } = get();
     if (!currentCard || !deckId) return;
 
@@ -146,20 +157,27 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       scheduledDays: updatedCardData.scheduledDays,
     });
 
-    // Add review log
-    await repository.addReviewLog({
-      cardId: currentCard.id,
-      deckId,
-      rating,
-      state: updatedCardData.state as CardState,
-      stability: updatedCardData.stability,
-      difficulty: updatedCardData.difficulty,
-      elapsedDays: updatedCardData.elapsedDays,
-      lastElapsedDays: currentCard.elapsedDays,
-      scheduledDays: updatedCardData.scheduledDays,
-      elapsedMs: Date.now() - startTime,
-      reviewedAt: new Date(),
-    });
+    // Add review log with extended data
+    const { currentUserId } = get();
+    if (currentUserId) {
+      await repository.addReviewLog(currentUserId, {
+        cardId: currentCard.id,
+        deckId,
+        rating,
+        state: updatedCardData.state as CardState,
+        stability: updatedCardData.stability,
+        difficulty: updatedCardData.difficulty,
+        elapsedDays: updatedCardData.elapsedDays,
+        lastElapsedDays: currentCard.elapsedDays,
+        scheduledDays: updatedCardData.scheduledDays,
+        elapsedMs: Date.now() - startTime,
+        reviewedAt: new Date(),
+        // Extended tracking data
+        isCorrect: extra?.isCorrect,
+        userAnswer: extra?.userAnswer,
+        selectedChoice: extra?.selectedChoice,
+      });
+    }
 
     // Update stats
     const isCorrect = rating >= 3;
@@ -268,6 +286,25 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({
       remainingSeconds: newRemaining,
       showRestReminder: shouldShowReminder ? true : get().showRestReminder,
+    });
+  },
+
+  clearSession: () => {
+    set({
+      isActive: false,
+      mode: 'micro',
+      deckId: null,
+      startedAt: null,
+      cards: [],
+      currentIndex: 0,
+      currentCard: null,
+      reviewed: 0,
+      correct: 0,
+      incorrect: 0,
+      targetMinutes: 10,
+      remainingSeconds: 600,
+      isPaused: false,
+      showRestReminder: false,
     });
   },
 }));

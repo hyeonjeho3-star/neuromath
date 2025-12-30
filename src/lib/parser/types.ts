@@ -2,6 +2,8 @@
  * Card Parser Type Definitions
  */
 
+import type { CardType, AnswerType, Choice, Step } from '@/lib/db';
+
 /** Single cloze deletion item */
 export interface ClozeItem {
   /** Cloze index (1-based, from {{c1::...}}) */
@@ -14,6 +16,19 @@ export interface ClozeItem {
   start: number;
   /** End position in original text */
   end: number;
+}
+
+/** Parsed choice for MCQ cards */
+export interface ParsedChoice {
+  text: string;
+  isCorrect: boolean;
+}
+
+/** Parsed step for procedure cards */
+export interface ParsedStep {
+  order: number;
+  content: string;
+  hint?: string;
 }
 
 /** Parsed card from file */
@@ -30,6 +45,16 @@ export interface ParsedCard {
   trapOptions: string[];
   /** Card-specific tags */
   tags: string[];
+  /** Card type (basic, cloze, mcq, numeric, procedure) */
+  cardType?: CardType;
+  /** Answer type for answer validation */
+  answerType?: AnswerType;
+  /** Numeric answer key for numeric cards */
+  answerKey?: string;
+  /** Choices for MCQ cards */
+  choices?: ParsedChoice[];
+  /** Steps for procedure cards */
+  steps?: ParsedStep[];
 }
 
 /** Parsed deck from file */

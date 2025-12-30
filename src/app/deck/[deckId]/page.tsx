@@ -1,18 +1,52 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Play, Clock, BookOpen, BarChart2, Tag, Calendar, Trash2 } from 'lucide-react';
+import { ArrowLeft, Play, Clock, BookOpen, BarChart2, Tag, Calendar, Trash2, List, Settings2 } from 'lucide-react';
 import { useDeckStore } from '@/stores/deckStore';
+import { CardList } from '@/components/CardList';
+import { getCardsByDeck, updateCard, deleteCard as deleteCardFromDB, refreshDeckCounts } from '@/lib/db/repository';
+import type { Card } from '@/lib/db';
+import { cn } from '@/lib/utils';
+
+type TabType = 'study' | 'cards';
 
 export default function DeckDetailPage() {
   const params = useParams();
   const router = useRouter();
   const deckId = params.deckId as string;
 
-  const { getDeck, deckStats, deleteDeck } = useDeckStore();
+  const { getDeck, deckStats, deleteDeck, refreshDeckStats } = useDeckStore();
   const deck = getDeck(deckId);
   const stats = deckStats[deckId];
+
+  const [activeTab, setActiveTab] = useState<TabType>('study');
+  const [cards, setCards] = useState<Card[]>([]);
+  const [isLoadingCards, setIsLoadingCards] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'cards' && deckId) {
+      setIsLoadingCards(true);
+      getCardsByDeck(deckId)
+        .then(setCards)
+        .finally(() => setIsLoadingCards(false));
+    }
+  }, [activeTab, deckId]);
+
+  const handleUpdateCard = async (cardId: string, updates: Partial<Card>) => {
+    await updateCard(cardId, updates);
+    const updatedCards = await getCardsByDeck(deckId);
+    setCards(updatedCards);
+  };
+
+  const handleDeleteCard = async (cardId: string) => {
+    await deleteCardFromDB(cardId);
+    await refreshDeckCounts(deckId);
+    refreshDeckStats(deckId);
+    const updatedCards = await getCardsByDeck(deckId);
+    setCards(updatedCards);
+  };
 
   if (!deck) {
     return (
@@ -83,116 +117,165 @@ export default function DeckDetailPage() {
         </div>
       )}
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center">
-          <BookOpen className="mx-auto text-gray-400 mb-2" size={24} />
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">{deck.cardCount}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Total Cards</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center">
-          <div className="w-6 h-6 mx-auto text-green-500 mb-2 font-bold text-xl">+</div>
-          <p className="text-2xl font-bold text-green-500">{stats?.newCards ?? 0}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">New</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center">
-          <Clock className="mx-auto text-orange-500 mb-2" size={24} />
-          <p className="text-2xl font-bold text-orange-500">{stats?.dueToday ?? 0}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Due Today</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center">
-          <BarChart2 className="mx-auto text-blue-500 mb-2" size={24} />
-          <p className="text-2xl font-bold text-blue-500">{masteredPercent}%</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Mastered</p>
-        </div>
+      {/* Tabs */}
+      <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
+        <button
+          onClick={() => setActiveTab('study')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-3 font-medium transition-colors border-b-2 -mb-px',
+            activeTab === 'study'
+              ? 'border-orange-500 text-orange-500'
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+          )}
+        >
+          <Play size={18} />
+          학습
+        </button>
+        <button
+          onClick={() => setActiveTab('cards')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-3 font-medium transition-colors border-b-2 -mb-px',
+            activeTab === 'cards'
+              ? 'border-orange-500 text-orange-500'
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+          )}
+        >
+          <List size={18} />
+          카드 ({deck.cardCount})
+        </button>
       </div>
 
-      {/* Progress Bar */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 mb-6">
-        <div className="flex justify-between text-sm mb-2">
-          <span className="text-gray-500 dark:text-gray-400">Progress</span>
-          <span className="text-gray-700 dark:text-gray-300">{masteredPercent}% Mastered</span>
-        </div>
-        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-orange-400 to-green-500 transition-all duration-500"
-            style={{ width: `${masteredPercent}%` }}
-          />
-        </div>
-        <div className="flex justify-between mt-2 text-xs text-gray-500 dark:text-gray-400">
-          <span>New: {stats?.newCards ?? 0}</span>
-          <span>Learning: {stats?.learningCards ?? 0}</span>
-          <span>Review: {stats?.reviewCards ?? 0}</span>
-          <span>Mastered: {stats?.masteredCards ?? 0}</span>
-        </div>
-      </div>
-
-      {/* Study Options */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Start Study Session</h2>
-
-        {/* Quick Session */}
-        <Link
-          href={`/session/${deckId}?mode=micro&minutes=5`}
-          className="flex items-center justify-between p-4 bg-orange-500 hover:bg-orange-600 text-white rounded-xl transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            <Play size={24} />
-            <div>
-              <p className="font-semibold">Quick Session</p>
-              <p className="text-sm opacity-90">5 minutes • Perfect for breaks</p>
+      {/* Tab Content */}
+      {activeTab === 'study' && (
+        <>
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center">
+              <BookOpen className="mx-auto text-gray-400 mb-2" size={24} />
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{deck.cardCount}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Cards</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center">
+              <div className="w-6 h-6 mx-auto text-green-500 mb-2 font-bold text-xl">+</div>
+              <p className="text-2xl font-bold text-green-500">{stats?.newCards ?? 0}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">New</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center">
+              <Clock className="mx-auto text-orange-500 mb-2" size={24} />
+              <p className="text-2xl font-bold text-orange-500">{stats?.dueToday ?? 0}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Due Today</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center">
+              <BarChart2 className="mx-auto text-blue-500 mb-2" size={24} />
+              <p className="text-2xl font-bold text-blue-500">{masteredPercent}%</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Mastered</p>
             </div>
           </div>
-          <span className="text-2xl">5m</span>
-        </Link>
 
-        {/* Standard Session */}
-        <Link
-          href={`/session/${deckId}?mode=micro&minutes=10`}
-          className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-orange-500 rounded-xl transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            <Clock className="text-orange-500" size={24} />
-            <div>
-              <p className="font-semibold text-gray-900 dark:text-white">Standard Session</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">10 minutes • Recommended daily</p>
+          {/* Progress Bar */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 mb-6">
+            <div className="flex justify-between text-sm mb-2">
+              <span className="text-gray-500 dark:text-gray-400">Progress</span>
+              <span className="text-gray-700 dark:text-gray-300">{masteredPercent}% Mastered</span>
+            </div>
+            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-orange-400 to-green-500 transition-all duration-500"
+                style={{ width: `${masteredPercent}%` }}
+              />
+            </div>
+            <div className="flex justify-between mt-2 text-xs text-gray-500 dark:text-gray-400">
+              <span>New: {stats?.newCards ?? 0}</span>
+              <span>Learning: {stats?.learningCards ?? 0}</span>
+              <span>Review: {stats?.reviewCards ?? 0}</span>
+              <span>Mastered: {stats?.masteredCards ?? 0}</span>
             </div>
           </div>
-          <span className="text-2xl text-orange-500">10m</span>
-        </Link>
 
-        {/* Long Session */}
-        <Link
-          href={`/session/${deckId}?mode=timed&minutes=20`}
-          className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-orange-500 rounded-xl transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            <Calendar className="text-blue-500" size={24} />
-            <div>
-              <p className="font-semibold text-gray-900 dark:text-white">Long Session</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">20 minutes • Deep focus</p>
-            </div>
-          </div>
-          <span className="text-2xl text-blue-500">20m</span>
-        </Link>
+          {/* Study Options */}
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Start Study Session</h2>
 
-        {/* All Due */}
-        {(stats?.dueToday ?? 0) > 0 && (
-          <Link
-            href={`/session/${deckId}?mode=all`}
-            className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-orange-500 rounded-xl transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <BookOpen className="text-green-500" size={24} />
-              <div>
-                <p className="font-semibold text-gray-900 dark:text-white">Review All Due</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Study all {stats?.dueToday} due cards</p>
+            {/* Quick Session */}
+            <Link
+              href={`/session/${deckId}?mode=micro&minutes=5`}
+              className="flex items-center justify-between p-4 bg-orange-500 hover:bg-orange-600 text-white rounded-xl transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Play size={24} />
+                <div>
+                  <p className="font-semibold">Quick Session</p>
+                  <p className="text-sm opacity-90">5 minutes • Perfect for breaks</p>
+                </div>
               </div>
+              <span className="text-2xl">5m</span>
+            </Link>
+
+            {/* Standard Session */}
+            <Link
+              href={`/session/${deckId}?mode=micro&minutes=10`}
+              className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-orange-500 rounded-xl transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Clock className="text-orange-500" size={24} />
+                <div>
+                  <p className="font-semibold text-gray-900 dark:text-white">Standard Session</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">10 minutes • Recommended daily</p>
+                </div>
+              </div>
+              <span className="text-2xl text-orange-500">10m</span>
+            </Link>
+
+            {/* Long Session */}
+            <Link
+              href={`/session/${deckId}?mode=timed&minutes=20`}
+              className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-orange-500 rounded-xl transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Calendar className="text-blue-500" size={24} />
+                <div>
+                  <p className="font-semibold text-gray-900 dark:text-white">Long Session</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">20 minutes • Deep focus</p>
+                </div>
+              </div>
+              <span className="text-2xl text-blue-500">20m</span>
+            </Link>
+
+            {/* All Due */}
+            {(stats?.dueToday ?? 0) > 0 && (
+              <Link
+                href={`/session/${deckId}?mode=all`}
+                className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-orange-500 rounded-xl transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <BookOpen className="text-green-500" size={24} />
+                  <div>
+                    <p className="font-semibold text-gray-900 dark:text-white">Review All Due</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Study all {stats?.dueToday} due cards</p>
+                  </div>
+                </div>
+                <span className="text-xl text-green-500">{stats?.dueToday}</span>
+              </Link>
+            )}
+          </div>
+        </>
+      )}
+
+      {activeTab === 'cards' && (
+        <div>
+          {isLoadingCards ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500" />
             </div>
-            <span className="text-xl text-green-500">{stats?.dueToday}</span>
-          </Link>
-        )}
-      </div>
+          ) : (
+            <CardList
+              cards={cards}
+              onUpdateCard={handleUpdateCard}
+              onDeleteCard={handleDeleteCard}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }

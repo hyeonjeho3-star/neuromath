@@ -46,3 +46,8 @@ next-env.d.ts
 pdf_content.txt
 template-*.md
 template-*.txt
+
+# Large document files (source materials)
+토익_*.md
+중학수학총정리.md
+한권중학수학.md
